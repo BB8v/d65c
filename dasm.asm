@@ -132,24 +132,24 @@ _found_mode:
         ; 1234   22 00       UVW ...
         ; 1234   33 00 00    RST ...
 
-        ldy #$ff                ; count fields -1, 0, 1, 2, 3
+        ldx #$ff                ; count fields -1, 0, 1, 2, 3
 
 _3spcs:
-        ldx #2                  ; print three spaces (X=2,1,0)
+        ldy #2                  ; print three spaces (X=2,1,0)
 _spcs:
         jsr prspc               ; print a space
-        dex
+        dey
         bpl _spcs
 
-        iny                     ; next 3 char field
-        cpy #4                  ; done?
+        inx                     ; next 3 char field
+        cpx #4                  ; done?
         beq find_mnemonic
 
-        cpy oplen               ; finished operands?
+        cpx oplen               ; finished operands?
         bpl _3spcs              ; right justify
 
         lda (pc)                ; fetch next byte
-        sta opcode,y            ; save to opcode, args
+        sta opcode,x            ; save to opcode, args
         inc pc                  ; advance pc
         bne +
         inc pc+1
@@ -164,29 +164,30 @@ _spcs:
         ; out: X index to mnemonic table
 
 find_mnemonic:
-        lda opcode
+        ldy opcode
+        tya    ;lda opcode
 
         ; -------------------------------------------------------------
         ; First check opcodes that don't follow a clear pattern
 
-        ldx #n_special_mnem-1   ; loop backward to save cpx
+        ldx #n_special_mnem   ; loop backward to save cpx
 -
-        cmp op_special_mnem,x
+        cmp op_special_mnem-1,x
         bne +
-        lda ix_special_mnem,x
+        lda ix_special_mnem-1,x
         bra _w2s
 +
         dex
-        bpl -
+        bne -
 
         ; -------------------------------------------------------------
         ; Then try matching one of several bitmasked slice
         ; Excluding bitops, these patterns cover all opcodes
         ; so we can skip the final check and just fall through
-        ldx #0
+        ;ldx #0
 -
-        lda slice_mask,x
-        and opcode
+        tya    ;lda opcode
+        and slice_mask,x
         cmp slice_match,x
         beq _found_slice
         inx
@@ -201,7 +202,7 @@ find_mnemonic:
         ; x selects first or second of the pair
 
         ldx #mBITOPS
-        lda opcode
+        tya    ;lda opcode
         bpl +                   ; N=x set indicates the second pair
         inx
         inx
@@ -219,8 +220,8 @@ find_mnemonic:
         inx                     ; it's BBR/BBS
         ; update format to mode_ZR.  Nb. the original mode
         ; wasn't mode_R so stashed V flag is still OK
-        ldy #format_ZR
-        sty format
+        lda #format_ZR
+        sta format
 +
         txa
         bra _w2s
@@ -230,7 +231,7 @@ _found_slice:
         ; -------------------------------------------------------------
         ; found a matching slice, calculate index into mnemonic table
 
-        lda opcode              ; aaabbbcc
+        tya   ;lda opcode              ; aaabbbcc
         stx tmp                 ; X is 0, 1,2,3, 4,5,6,7,8
         cpx #1                  ; check for X=0 with carry bit
         bcc _x0                 ; For X=0 we want index aaabb and leave C=0
